@@ -34,6 +34,7 @@ erDiagram
         float valeur_fonciere
         int id_bien FK
     }
+```
 
 **Justification :** Cette structure permet d'historiser plusieurs ventes pour un même bien ou une même zone géographique sans duplication inutile d'informations.
 
