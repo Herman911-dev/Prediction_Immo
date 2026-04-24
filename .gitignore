@@ -205,3 +205,26 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# --- SECTION SPÉCIFIQUE PROJET DATA ---
+
+# Dossier contenant tes fichiers DVF (TXT, CSV, etc.)
+data/
+
+# Fichiers de données volumineux (au cas où ils traînent ailleurs)
+*.txt
+*.csv
+*.tsv
+*.zip
+*.7z
+*.parquet
+
+# Dossier des modèles de Machine Learning entraînés
+# (Ces fichiers peuvent peser plusieurs centaines de Mo)
+models/
+*.joblib
+*.pkl
+*.model
+
+# Dossier des exports ou résultats temporaires
+outputs/
