@@ -7,8 +7,8 @@
 
 ## 2. Schéma Relationnel (MCD)
 Pour répondre aux besoins de l'application, la structure suivante est retenue :
-```
-mermaiderDiagram
+```mermaid
+erDiagram
     LOCALISATION ||--o{ BIEN : "se situe"
     BIEN ||--o{ TRANSACTION : "fait l'objet de"
 
@@ -34,7 +34,6 @@ mermaiderDiagram
         float valeur_fonciere
         int id_bien FK
     }
-```
 
 **Justification :** Cette structure permet d'historiser plusieurs ventes pour un même bien ou une même zone géographique sans duplication inutile d'informations.
 
