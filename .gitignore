@@ -226,3 +226,6 @@ models/
 
 # Dossier des exports ou résultats temporaires
 outputs/
+
+# Fichiers secrets
+.env
