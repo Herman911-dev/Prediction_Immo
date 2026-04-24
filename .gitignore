@@ -211,16 +211,14 @@ __marimo__/
 # Dossier contenant tes fichiers DVF (TXT, CSV, etc.)
 data/
 
-# Fichiers de données volumineux (au cas où ils traînent ailleurs)
-*.txt
+# Fichiers de données volumineux 
 *.csv
 *.tsv
 *.zip
 *.7z
 *.parquet
 
-# Dossier des modèles de Machine Learning entraînés
-# (Ces fichiers peuvent peser plusieurs centaines de Mo)
+# Dossier des modèles de Machine Learning entraîné 
 models/
 *.joblib
 *.pkl

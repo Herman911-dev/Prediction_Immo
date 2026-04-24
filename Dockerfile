@@ -2,7 +2,7 @@
 FROM python:3.10-slim
 # 2. Dossier de travail dans le conteneur
 WORKDIR /app
-# 3. Installation des dépendances système (si besoin)
+# 3. Installation des dépendances système 
 RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -14,5 +14,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 # 6. Port utilisé par Streamlit
 EXPOSE 8501
-# 7. Commande de lancement (on l'ajustera plus tard)
+# 7. Commande de lancement 
 CMD ["streamlit", "run", "src/app.py"]

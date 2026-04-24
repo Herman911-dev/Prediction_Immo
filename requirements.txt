@@ -1,0 +1,16 @@
+# Data Processing
+pandas
+numpy
+
+# Machine Learning
+scikit-learn
+
+# Interface Utilisateur
+streamlit
+
+# Visualisation
+matplotlib
+seaborn
+
+# Utilitaires
+python-dotenv
