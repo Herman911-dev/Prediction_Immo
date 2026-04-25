@@ -1,16 +1,19 @@
-# Data Processing
+# DATA PROCESSING
 pandas
 numpy
 
-# Machine Learning
+# MACHINE LEARNING
 scikit-learn
+xgboost
+joblib
 
-# Interface Utilisateur
+# DATABASE & ETL
+SQLAlchemy
+psycopg2-binary
+requests
+python-dotenv
+
+# FRONTEND & VISUALIZATION 
 streamlit
-
-# Visualisation
 matplotlib
 seaborn
-
-# Utilitaires
-python-dotenv

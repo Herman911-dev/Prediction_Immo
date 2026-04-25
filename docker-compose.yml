@@ -1,5 +1,7 @@
 version: '3.8'
+
 services:
+  # Le Backend (Base de données)
   db:
     image: postgres:15
     container_name: postgres_immo
@@ -9,9 +11,23 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5433:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  # Le Frontend
+  app:
+    build: .  # On dit à Docker de lire le fichier "Dockerfile" à la racine
+    container_name: streamlit_immo
+    restart: always
+    ports:
+      - "8501:8501" # Le port de Streamlit
+    depends_on:
+      - db # S'assure que la DB s'allume avant le site web
+    env_file:
+      - .env 
+    volumes:
+      - .:/app
 
 volumes:
   postgres_data:

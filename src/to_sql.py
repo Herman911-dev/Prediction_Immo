@@ -1,115 +1,99 @@
-import joblib
+import io
+import csv
+import time
+import logging
 import pandas as pd
 import os
-from pathlib import Path
-import logging
-import time
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
-# Configuration du Logger
+
+# CONFIGURATION DU LOGGING
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger(__name__)
 
-class RealEstatePredictor:
+# VARIABLES GLOBALES
+
+load_dotenv()
+DB_USER = os.getenv("DB_USER")
+DB_PASS = os.getenv("DB_PASSWORD")
+DB_HOST = "localhost"
+DB_PORT = "5433"
+DB_NAME = os.getenv("DB_NAME")
+CSV_PATH = "data/cleaned/dvf_idf_cleaned.csv"
+TABLE_NAME = "transactions"
+
+# FONCTIONS MÉTIER
+
+def psql_insert_copy(table, conn, keys, data_iter):
     """
-    Classe professionnelle pour gérer les prédictions immobilières.
-    Elle gère le chargement automatique des modèles et la transformation des données.
-    """
+    Exécute une insertion SQL en masse en utilisant la commande native COPY de PostgreSQL.
     
-    def __init__(self):
-        self.base_path = Path(__file__).parent
-        self.models_path = self.base_path.parent / "models"
+    Cette méthode utilise le module standard 'csv' de Python pour formater les données,
+    assurant une compatibilité totale avec les versions récentes de Pandas (2.0+).
+    """
+    # Extraction de la connexion bas-niveau (psycopg2) depuis SQLAlchemy
+    dbapi_conn = conn.connection
+    with dbapi_conn.cursor() as cur:
+        # Création d'un buffer en mémoire (fichier temporaire virtuel)
+        s_buf = io.StringIO()
         
-        self.model = None
-        self.postal_means = None
-        self.expected_columns = None
+        # Formatage des données vers le buffer via le module csv standard
+        writer = csv.writer(s_buf)
+        writer.writerows(data_iter)
+        s_buf.seek(0)
         
-        self._load_artifacts()
+        # Construction dynamique de la requête SQL "COPY"
+        columns = ', '.join(f'"{k}"' for k in keys)
+        table_name = f'{table.schema}.{table.name}' if table.schema else table.name
+        sql = f'COPY {table_name} ({columns}) FROM STDIN WITH CSV'
+        
+        # Exécution de la copie
+        cur.copy_expert(sql=sql, file=s_buf)
 
-    def _load_artifacts(self):
-        """Charge les fichiers .joblib en vérifiant leur existence."""
-        logger.info("🧠 Initialisation du Predictor. Recherche des modèles...")
-        files = {
-            "model": self.models_path / "rf_model_immo.joblib",
-            "postal": self.models_path / "postal_means.joblib",
-            "columns": self.models_path / "expected_columns.joblib"
-        }
-        
-        try:
-            for name, path in files.items():
-                if not path.exists():
-                    raise FileNotFoundError(f"Le fichier {path} est introuvable.")
-
-            self.model = joblib.load(files["model"])
-            self.postal_means = joblib.load(files["postal"])
-            self.expected_columns = joblib.load(files["columns"])
-            
-            logger.info("✅ Intelligence Artificielle et méta-données chargées avec succès.")
-        
-        except Exception as e:
-            logger.exception(f"❌ Erreur critique lors du chargement des modèles : {e}")
-            raise
-
-    def predict(self, surface, nb_pieces, terrain, type_bien, code_postal, date_mutation):
-        """Réalise la prédiction à partir des données brutes utilisateur."""
-        logger.info(f"🎯 Demande de prédiction reçue : {type_bien} de {surface}m² à {code_postal}.")
-        
-        try:
-            # --- PRE-PROCESSING ---
-            date = pd.to_datetime(date_mutation)
-            annee, mois = date.year, date.month
-            surface_par_piece = surface / max(1, nb_pieces)
-            
-            postal_score = self.postal_means.get(str(code_postal), self.postal_means.mean())
-            est_paris = 1 if str(code_postal).startswith('75') else 0
-            
-            # --- PRÉPARATION DU FORMAT ---
-            input_data = {col: [0] for col in self.expected_columns}
-            input_data.update({
-                'surface_reelle_bati': [surface],
-                'nb_pieces': [nb_pieces],
-                'surface_terrain': [terrain],
-                'annee': [annee],
-                'mois': [mois],
-                'surface_par_piece': [surface_par_piece],
-                'postal_score': [postal_score],
-                'est_paris': [est_paris]
-            })
-            
-            if type_bien == "Maison" and 'type_local_Maison' in input_data:
-                input_data['type_local_Maison'] = [1]
-                
-            df_final = pd.DataFrame(input_data)[self.expected_columns]
-            
-            # --- PRÉDICTION ---
-            res = self.model.predict(df_final)[0]
-            logger.info(f"✅ Prédiction réussie : {res:,.2f} €")
-            return round(res, 2)
-            
-        except Exception as e:
-            logger.error(f"❌ Erreur lors du calcul de la prédiction : {e}")
-            raise
-
-# --- TEST ---
-if __name__ == "__main__":
-    logger.info("🧪 Lancement du test local de predictor.py")
+def main():
+    """Point d'entrée principal du pipeline d'ingestion PostgreSQL."""
     start_time = time.time()
-    
+    logging.info("Démarrage du processus d'ingestion massive...")
+
     try:
-        predictor = RealEstatePredictor()
-        prix = predictor.predict(
-            surface=45, 
-            nb_pieces=2, 
-            terrain=0, 
-            type_bien="Appartement", 
-            code_postal="75011", 
-            date_mutation="2024-06-01"
+        # Connexion au moteur PostgreSQL
+        db_uri = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        engine = create_engine(db_uri)
+        
+        # Chargement du jeu de données nettoyé
+        logging.info(f"Lecture du fichier source : {CSV_PATH}")
+        df = pd.read_csv(CSV_PATH)
+        
+        # Injection dans la base de données
+        logging.info(f"Injection de {len(df):,} lignes dans la table '{TABLE_NAME}'...")
+        
+        # Nettoyage des noms de colonnes
+        logging.info("Standardisation des noms de colonnes (snake_case)...")
+        df.columns = [col.lower().replace(' ', '_') for col in df.columns]
+        
+        # OPTIMISATION RAM : chunksize=100000 couplé avec COPY 
+        df.to_sql(
+            name=TABLE_NAME, 
+            con=engine, 
+            if_exists='replace', 
+            index=False, 
+            method=psql_insert_copy,
+            chunksize=100000 
         )
         
-        execution_time = round((time.time() - start_time) * 1000, 2)
-        logger.info(f"🏁 Test terminé en {execution_time} ms. Prix final estimé : {prix:,.0f} €")
+        elapsed_time = time.time() - start_time
+        logging.info(f"SUCCÈS : Données ingérées avec succès en {elapsed_time:.2f} secondes.")
         
+    except FileNotFoundError:
+        logging.error(f"ÉCHEC : Le fichier {CSV_PATH} est introuvable. Vérifiez votre chemin d'accès.")
     except Exception as e:
-        logger.error("💥 Le test a échoué.")
+        logging.error(f"ÉCHEC : Une erreur critique est survenue lors de l'ingestion : {e}")
+
+# EXÉCUTION DU SCRIPT
+
+if __name__ == "__main__":
+    main()

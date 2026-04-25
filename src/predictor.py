@@ -56,7 +56,7 @@ class RealEstatePredictor:
             logger.info("Intelligence Artificielle et méta-données chargées avec succès.")
         
         except Exception as e:
-            logger.exception(f"Erreur critique lors du chargement des modèles : {e}")
+            logger.exception(f"Erreur critique lors du chargement des modèles : {e}, Assurez-vous d'avoir lancé train.py")
             raise
 
     def predict(self, surface, nb_pieces, terrain, type_bien, code_postal, date_mutation):
@@ -101,7 +101,7 @@ class RealEstatePredictor:
             logger.error(f"Erreur lors du calcul de la prédiction : {e}")
             raise
 
-# --- TEST ---
+# TEST 
 if __name__ == "__main__":
     # On instancie le prédicteur une seule fois
     logger.info("Lancement du test local de predictor.py")
