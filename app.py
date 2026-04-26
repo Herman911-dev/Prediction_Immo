@@ -1,536 +1,235 @@
-import streamlit as st
-from datetime import date
 import time
+import logging
+from datetime import date
 
+import streamlit as st
 from src.predictor import RealEstatePredictor
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
+
+
+# CONFIGURATION INITIALE
 st.set_page_config(
-    page_title="EstimaTech IDF",
+    page_title="EstimaTech IDF | IA",
     page_icon="🏙️",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# ==========================================
-# CSS — Dark Premium
-# ==========================================
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap');
-
-/* ---- Reset & Base ---- */
-#MainMenu, footer, header { visibility: hidden; }
-
-html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-    color: #E2E8F0;
-}
-
-.stApp {
-    background: #0D1117;
-}
-
-/* ---- Scrollbar ---- */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #0D1117; }
-::-webkit-scrollbar-thumb { background: #30363D; border-radius: 4px; }
-
-/* ---- Hero ---- */
-.hero {
-    text-align: center;
-    padding: 56px 0 40px;
-}
-.hero-eyebrow {
-    display: inline-block;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #F59E0B;
-    background: rgba(245,158,11,0.1);
-    border: 1px solid rgba(245,158,11,0.25);
-    border-radius: 100px;
-    padding: 4px 14px;
-    margin-bottom: 20px;
-}
-.hero-title {
-    font-family: 'DM Serif Display', serif;
-    font-size: clamp(2rem, 5vw, 3rem);
-    font-weight: 400;
-    color: #F1F5F9;
-    line-height: 1.15;
-    margin: 0 0 14px;
-}
-.hero-title span {
-    color: #F59E0B;
-}
-.hero-sub {
-    color: #64748B;
-    font-size: 1rem;
-    font-weight: 300;
-    max-width: 420px;
-    margin: 0 auto;
-    line-height: 1.6;
-}
-
-/* ---- Step indicator ---- */
-.steps-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-    margin: 32px 0 40px;
-}
-.step-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-}
-.step-circle {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 600;
-    border: 2px solid #30363D;
-    color: #64748B;
-    background: #161B22;
-    transition: all 0.3s;
-}
-.step-circle.active {
-    border-color: #F59E0B;
-    color: #F59E0B;
-    background: rgba(245,158,11,0.1);
-    box-shadow: 0 0 20px rgba(245,158,11,0.2);
-}
-.step-circle.done {
-    border-color: #10B981;
-    color: #10B981;
-    background: rgba(16,185,129,0.1);
-}
-.step-label {
-    font-size: 0.68rem;
-    font-weight: 500;
-    color: #64748B;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-.step-label.active { color: #F59E0B; }
-.step-label.done { color: #10B981; }
-.step-connector {
-    width: 60px;
-    height: 1px;
-    background: #30363D;
-    margin-bottom: 22px;
-}
-.step-connector.done { background: #10B981; }
-
-/* ---- Cards ---- */
-.card {
-    background: #161B22;
-    border: 1px solid #21262D;
-    border-radius: 16px;
-    padding: 32px 36px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-}
-.card-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #E2E8F0;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.card-desc {
-    font-size: 0.85rem;
-    color: #64748B;
-    margin-bottom: 28px;
-}
-
-/* ---- Streamlit widget overrides ---- */
-div[data-testid="stSelectbox"] label,
-div[data-testid="stNumberInput"] label,
-div[data-testid="stTextInput"] label,
-div[data-testid="stRadio"] label {
-    color: #94A3B8 !important;
-    font-size: 0.82rem !important;
-    font-weight: 500 !important;
-    letter-spacing: 0.04em !important;
-    text-transform: uppercase !important;
-}
-
-div[data-testid="stSelectbox"] > div > div,
-div[data-testid="stNumberInput"] input,
-div[data-testid="stTextInput"] input {
-    background: #0D1117 !important;
-    border: 1px solid #30363D !important;
-    border-radius: 10px !important;
-    color: #E2E8F0 !important;
-    font-family: 'DM Sans', sans-serif !important;
-}
-
-div[data-testid="stSelectbox"] > div > div:focus-within,
-div[data-testid="stNumberInput"] input:focus,
-div[data-testid="stTextInput"] input:focus {
-    border-color: #F59E0B !important;
-    box-shadow: 0 0 0 3px rgba(245,158,11,0.15) !important;
-    outline: none !important;
-}
-
-/* Radio buttons as toggle pills */
-div[data-testid="stRadio"] > div {
-    gap: 12px !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-}
-div[data-testid="stRadio"] > div > label {
-    background: #0D1117 !important;
-    border: 1px solid #30363D !important;
-    border-radius: 100px !important;
-    padding: 8px 20px !important;
-    color: #94A3B8 !important;
-    font-size: 0.88rem !important;
-    cursor: pointer !important;
-    transition: all 0.2s !important;
-    text-transform: none !important;
-    letter-spacing: 0 !important;
-    font-weight: 400 !important;
-}
-div[data-testid="stRadio"] > div > label:has(input:checked) {
-    background: rgba(245,158,11,0.12) !important;
-    border-color: #F59E0B !important;
-    color: #F59E0B !important;
-}
-
-/* Buttons */
-div[data-testid="stFormSubmitButton"] > button,
-.stButton > button {
-    background: #F59E0B !important;
-    color: #0D1117 !important;
-    border: none !important;
-    border-radius: 10px !important;
-    font-family: 'DM Sans', sans-serif !important;
-    font-weight: 600 !important;
-    font-size: 0.95rem !important;
-    padding: 12px 28px !important;
-    transition: all 0.2s !important;
-    letter-spacing: 0.02em !important;
-}
-div[data-testid="stFormSubmitButton"] > button:hover,
-.stButton > button:hover {
-    background: #FCD34D !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 8px 24px rgba(245,158,11,0.3) !important;
-}
-
-/* Secondary button */
-.stButton > button[kind="secondary"] {
-    background: transparent !important;
-    color: #64748B !important;
-    border: 1px solid #30363D !important;
-}
-.stButton > button[kind="secondary"]:hover {
-    color: #E2E8F0 !important;
-    border-color: #64748B !important;
-    transform: none !important;
-    box-shadow: none !important;
-}
-
-/* ---- Result card ---- */
-.result-wrapper {
-    background: linear-gradient(135deg, #161B22 0%, #1C2230 100%);
-    border: 1px solid #21262D;
-    border-radius: 20px;
-    padding: 44px 36px;
-    text-align: center;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-    position: relative;
-    overflow: hidden;
-    margin-top: 10px;
-}
-.result-wrapper::before {
-    content: '';
-    position: absolute;
-    top: -60px; left: 50%;
-    transform: translateX(-50%);
-    width: 300px; height: 300px;
-    background: radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%);
-    pointer-events: none;
-}
-.result-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: #64748B;
-    margin-bottom: 12px;
-}
-.result-price {
-    font-family: 'DM Serif Display', serif;
-    font-size: clamp(2.5rem, 7vw, 3.8rem);
-    font-weight: 400;
-    color: #F59E0B;
-    line-height: 1;
-    margin-bottom: 8px;
-}
-.result-meta {
-    font-size: 0.85rem;
-    color: #475569;
-    margin-bottom: 28px;
-}
-.result-badges {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-.badge {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid #30363D;
-    border-radius: 8px;
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    color: #94A3B8;
-}
-
-/* ---- Divider ---- */
-.divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #30363D, transparent);
-    margin: 32px 0;
-}
-
-/* ---- Native Streamlit form styled as card ---- */
-div[data-testid="stForm"] {
-    background: #161B22 !important;
-    border: 1px solid #21262D !important;
-    border-radius: 16px !important;
-    padding: 32px 36px !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
-}
-
-/* ---- Force hero centering ---- */
-.block-container {
-    text-align: center;
-}
-.block-container > div {
-    text-align: left;
-}
-div[data-testid="stForm"] {
-    text-align: left;
-}
-
-/* ---- Warning & Error ---- */
-div[data-testid="stAlert"] {
-    background: rgba(239,68,68,0.08) !important;
-    border: 1px solid rgba(239,68,68,0.3) !important;
-    border-radius: 10px !important;
-    color: #FCA5A5 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# CACHE
-# ==========================================
-@st.cache_resource
+# GESTION DU CACHE & MÉMOIRE
+@st.cache_resource(show_spinner="Chargement du moteur d'IA...")
 def load_predictor():
+    """
+    Mise en cache du modèle de Machine Learning.
+    Choix technique : '@st.cache_resource' évite de recharger les lourds fichiers 
+    .joblib à chaque interaction de l'utilisateur (clic, saisie), garantissant 
+    une interface fluide et sans latence.
+    """
     return RealEstatePredictor()
 
-try:
-    predictor = load_predictor()
-except Exception as e:
-    st.error("⚠️ Impossible de charger le modèle. Vérifiez que les modèles sont entraînés.")
-    st.stop()
+def init_session_state():
+    """Initialise les variables de session pour le formulaire multi-étapes."""
+    if "step" not in st.session_state:
+        st.session_state.step = 1
+    if "form_data" not in st.session_state:
+        st.session_state.form_data = {}
 
-# ==========================================
-# SESSION STATE (étapes)
-# ==========================================
-if "step" not in st.session_state:
-    st.session_state.step = 1
-if "form_data" not in st.session_state:
-    st.session_state.form_data = {}
+def reset_estimation():
+    """Réinitialise l'application pour une nouvelle estimation."""
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.rerun()
 
-# ==========================================
-# HERO
-# ==========================================
-st.markdown("""
-<div class="hero">
-    <div class="hero-eyebrow">Île-de-France · Estimation IA</div>
-    <h1 class="hero-title">Quelle est la valeur<br>de votre <span>bien</span> ?</h1>
-    <p class="hero-sub">Obtenez une estimation précise en moins de 30 secondes, basée sur les transactions réelles du marché.</p>
-</div>
-""", unsafe_allow_html=True)
+# COMPOSANTS VISUELS (UI/CSS)
+def inject_custom_css():
+    """
+    Injection de CSS pour surcharger le style par défaut de Streamlit.
+    Choix UX : On donne à l'application un aspect "SaaS Premium" (thème sombre, 
+    typographie soignée, ombres portées) pour renforcer la crédibilité de l'IA.
+    """
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap');
 
-# ==========================================
-# STEP INDICATOR
-# ==========================================
-def step_class(target):
-    if st.session_state.step > target:
-        return "done"
-    elif st.session_state.step == target:
-        return "active"
-    return ""
+    #MainMenu, footer, header { visibility: hidden; }
+    html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; color: #E2E8F0; }
+    .stApp { background: #0D1117; }
 
-s1 = step_class(1)
-s2 = step_class(2)
-s3 = step_class(3)
+    /* En-tête (Hero) */
+    .hero { text-align: center; padding: 40px 0 30px; }
+    .hero-eyebrow { 
+        display: inline-block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.18em;
+        text-transform: uppercase; color: #F59E0B; background: rgba(245,158,11,0.1);
+        border: 1px solid rgba(245,158,11,0.25); border-radius: 100px; padding: 4px 14px; margin-bottom: 20px;
+    }
+    .hero-title { font-family: 'DM Serif Display', serif; font-size: clamp(2rem, 5vw, 3rem); margin: 0 0 10px; }
+    .hero-title span { color: #F59E0B; }
+    .hero-sub { color: #64748B; font-size: 1rem; max-width: 420px; margin: 0 auto; line-height: 1.6; }
 
-connector_1 = "done" if st.session_state.step > 1 else ""
-connector_2 = "done" if st.session_state.step > 2 else ""
+    /* Indicateur d'étapes (Stepper) */
+    .steps-container { display: flex; align-items: center; justify-content: center; margin: 20px 0 40px; }
+    .step-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .step-circle { 
+        width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        font-size: 0.8rem; font-weight: 600; border: 2px solid #30363D; color: #64748B; background: #161B22; transition: all 0.3s;
+    }
+    .step-circle.active { border-color: #F59E0B; color: #F59E0B; background: rgba(245,158,11,0.1); box-shadow: 0 0 20px rgba(245,158,11,0.2); }
+    .step-circle.done { border-color: #10B981; color: #10B981; background: rgba(16,185,129,0.1); }
+    .step-label { font-size: 0.68rem; font-weight: 500; color: #64748B; text-transform: uppercase; }
+    .step-label.active { color: #F59E0B; }
+    .step-label.done { color: #10B981; }
+    .step-connector { width: 50px; height: 1px; background: #30363D; margin-bottom: 22px; }
+    .step-connector.done { background: #10B981; }
 
-icon1 = "✓" if s1 == "done" else "1"
-icon2 = "✓" if s2 == "done" else "2"
-icon3 = "✓" if s3 == "done" else "3"
+    /* Surcharge des inputs Streamlit */
+    div[data-testid="stForm"] { background: #161B22; border: 1px solid #21262D; border-radius: 16px; padding: 30px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+    div[data-testid="stSelectbox"] > div > div, div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { background: #0D1117; border: 1px solid #30363D; border-radius: 10px; color: #E2E8F0; }
+    
+    /* Boutons */
+    div[data-testid="stFormSubmitButton"] > button, .stButton > button {
+        background: #F59E0B; color: #0D1117; border: none; border-radius: 10px; font-weight: 600; transition: all 0.2s; width: 100%;
+    }
+    div[data-testid="stFormSubmitButton"] > button:hover, .stButton > button:hover { background: #FCD34D; transform: translateY(-1px); }
+    
+    /* Carte de résultat */
+    .result-wrapper { background: linear-gradient(135deg, #161B22 0%, #1C2230 100%); border: 1px solid #21262D; border-radius: 20px; padding: 40px; text-align: center; margin-top: 10px;}
+    .result-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: #64748B; margin-bottom: 12px; }
+    .result-price { font-family: 'DM Serif Display', serif; font-size: 3.5rem; color: #F59E0B; margin-bottom: 8px; }
+    .result-meta { font-size: 0.85rem; color: #475569; margin-bottom: 25px; }
+    .badge { background: rgba(255,255,255,0.04); border: 1px solid #30363D; border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; color: #94A3B8; margin: 0 5px; display: inline-block;}
+    </style>
+    """, unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class="steps-container">
-    <div class="step-item">
-        <div class="step-circle {s1}">{icon1}</div>
-        <span class="step-label {s1}">Le bien</span>
+def render_header():
+    """Affiche l'en-tête et l'indicateur d'étapes dynamique."""
+    st.markdown("""
+    <div class="hero">
+        <div class="hero-eyebrow">Île-de-France · Estimation IA</div>
+        <h1 class="hero-title">Quelle est la valeur<br>de votre <span>bien</span> ?</h1>
+        <p class="hero-sub">Obtenez une estimation précise basée sur les transactions réelles de l'État (DVF).</p>
     </div>
-    <div class="step-connector {connector_1}"></div>
-    <div class="step-item">
-        <div class="step-circle {s2}">{icon2}</div>
-        <span class="step-label {s2}">Localisation</span>
+    """, unsafe_allow_html=True)
+
+    step = st.session_state.step
+    s1, s2, s3 = ("done" if step > 1 else "active" if step == 1 else "", 
+                  "done" if step > 2 else "active" if step == 2 else "", 
+                  "done" if step > 3 else "active" if step == 3 else "")
+    
+    st.markdown(f"""
+    <div class="steps-container">
+        <div class="step-item"><div class="step-circle {s1}">{'✓' if s1=='done' else '1'}</div><span class="step-label {s1}">Le bien</span></div>
+        <div class="step-connector {s1}"></div>
+        <div class="step-item"><div class="step-circle {s2}">{'✓' if s2=='done' else '2'}</div><span class="step-label {s2}">Lieu</span></div>
+        <div class="step-connector {s2}"></div>
+        <div class="step-item"><div class="step-circle {s3}">{'✓' if s3=='done' else '3'}</div><span class="step-label {s3}">Surfaces</span></div>
     </div>
-    <div class="step-connector {connector_2}"></div>
-    <div class="step-item">
-        <div class="step-circle {s3}">{icon3}</div>
-        <span class="step-label {s3}">Surfaces</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
+# LOGIQUE DES ÉTAPES DU FORMULAIRE
+# Choix UX : Séparer en étapes réduit la charge cognitive de l'utilisateur.
+# Choix Technique : L'utilisation de 'st.form' évite les rechargements de page inutiles.
 
-# ==========================================
-# ÉTAPE 1 — Type de bien
-# ==========================================
-if st.session_state.step == 1:
-    with st.form("step1_form"):
-        st.markdown('<div class="card-title">🏠 Type de bien</div>', unsafe_allow_html=True)
-        st.markdown('<div class="card-desc">Sélectionnez la nature du bien à estimer</div>', unsafe_allow_html=True)
-        type_bien = st.radio(
-            "Type",
-            ["Appartement", "Maison"],
-            label_visibility="collapsed"
-        )
-        st.markdown("<br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("Continuer →", use_container_width=True)
+def render_step_1():
+    with st.form("step1"):
+        st.subheader("🏠 Type de bien")
+        type_bien = st.radio("Sélectionnez la nature du bien", ["Appartement", "Maison"])
+        if st.form_submit_button("Continuer →"):
+            st.session_state.form_data["type_bien"] = type_bien
+            st.session_state.step = 2
+            st.rerun()
 
-    if submitted:
-        st.session_state.form_data["type_bien"] = type_bien
-        st.session_state.step = 2
-        st.rerun()
-
-
-# ==========================================
-# ÉTAPE 2 — Localisation
-# ==========================================
-elif st.session_state.step == 2:
-    with st.form("step2_form"):
-        st.markdown('<div class="card-title">📍 Localisation</div>', unsafe_allow_html=True)
-        st.markdown('<div class="card-desc">Renseignez le code postal du bien en Île-de-France</div>', unsafe_allow_html=True)
-        code_postal = st.text_input(
-            "Code postal",
-            placeholder="Ex : 75011, 93100, 92200…",
-            max_chars=5
-        )
-        st.markdown("<br>", unsafe_allow_html=True)
-        # "Continuer" déclaré EN PREMIER dans le DOM → reçoit Entrée.
-        # CSS flex order pour l'afficher visuellement à droite.
+def render_step_2():
+    with st.form("step2"):
+        st.subheader("📍 Localisation")
+        code_postal = st.text_input("Code postal (Île-de-France)", placeholder="Ex: 75011", max_chars=5)
+        
         col_back, col_next = st.columns([1, 2])
-        with col_next:
-            submitted = st.form_submit_button("Continuer →", use_container_width=True)
-        with col_back:
-            back = st.form_submit_button("← Retour", use_container_width=True)
+        submitted = col_next.form_submit_button("Continuer →")
+        back = col_back.form_submit_button("← Retour")
 
     if back:
         st.session_state.step = 1
         st.rerun()
     if submitted:
-        if len(code_postal) != 5 or not code_postal.isdigit():
-            st.warning("⚠️ Entrez un code postal valide à 5 chiffres.")
-        else:
+        if len(code_postal) == 5 and code_postal.isdigit():
             st.session_state.form_data["code_postal"] = code_postal
             st.session_state.step = 3
             st.rerun()
-
-
-# ==========================================
-# ÉTAPE 3 — Surfaces
-# ==========================================
-elif st.session_state.step == 3:
-    is_maison = st.session_state.form_data.get("type_bien") == "Maison"
-
-    with st.form("step3_form"):
-        st.markdown('<div class="card-title">📐 Caractéristiques</div>', unsafe_allow_html=True)
-        st.markdown('<div class="card-desc">Renseignez les surfaces et le nombre de pièces</div>', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            surface = st.number_input("Surface habitable (m²)", min_value=9, max_value=500, value=50, step=1)
-        with col2:
-            nb_pieces = st.number_input("Nombre de pièces", min_value=1, max_value=15, value=2, step=1)
-
-        if is_maison:
-            terrain = st.number_input("Surface terrain (m²)", min_value=0, max_value=5000, value=100, step=10)
         else:
-            terrain = 0
+            st.error("Veuillez saisir un code postal valide (5 chiffres).")
 
-        st.markdown("<br>", unsafe_allow_html=True)
+def render_step_3(predictor):
+    fd = st.session_state.form_data
+    is_maison = (fd.get("type_bien") == "Maison")
+
+    with st.form("step3"):
+        st.subheader("📐 Caractéristiques")
+        col1, col2 = st.columns(2)
+        surface = col1.number_input("Surface habitable (m²)", min_value=9, max_value=500, value=50)
+        nb_pieces = col2.number_input("Nombre de pièces", min_value=1, max_value=15, value=2)
+        terrain = st.number_input("Surface terrain (m²)", min_value=0, value=100) if is_maison else 0
+
         col_back, col_next = st.columns([1, 2])
-        with col_next:
-            submitted = st.form_submit_button("Obtenir l'estimation 🚀", use_container_width=True)
-        with col_back:
-            back = st.form_submit_button("← Retour", use_container_width=True)
+        submitted = col_next.form_submit_button("Estimer mon bien 🚀")
+        back = col_back.form_submit_button("← Retour")
 
     if back:
         st.session_state.step = 2
         st.rerun()
 
     if submitted:
-        fd = st.session_state.form_data
-        with st.spinner("Analyse du marché en cours…"):
-            time.sleep(1.2)
+        # Simulation d'un temps de calcul pour rassurer l'utilisateur sur la "réflexion" de l'IA
+        with st.spinner("L'Intelligence Artificielle croise vos données avec le marché..."):
+            time.sleep(1)
             try:
                 estimation = predictor.predict(
-                    surface=surface,
-                    nb_pieces=nb_pieces,
-                    terrain=terrain,
-                    type_bien=fd["type_bien"],
-                    code_postal=fd["code_postal"],
+                    surface=surface, nb_pieces=nb_pieces, terrain=terrain,
+                    type_bien=fd["type_bien"], code_postal=fd["code_postal"],
                     date_mutation=date.today().strftime("%Y-%m-%d")
                 )
-
                 prix_m2 = estimation / surface if surface > 0 else 0
 
                 st.markdown(f"""
                 <div class="result-wrapper">
-                    <div class="result-label">Valeur estimée</div>
+                    <div class="result-label">Valeur marchande estimée</div>
                     <div class="result-price">{estimation:,.0f} €</div>
-                    <div class="result-meta">{fd['type_bien']} · {fd['code_postal']} · {surface} m²</div>
-                    <div class="result-badges">
+                    <div class="result-meta">{fd['type_bien']} · Code postal {fd['code_postal']} · {surface} m²</div>
+                    <div>
                         <span class="badge">≈ {prix_m2:,.0f} €/m²</span>
-                        <span class="badge">{nb_pieces} pièce{"s" if nb_pieces > 1 else ""}</span>
-                        {f"<span class='badge'>Terrain {terrain} m²</span>" if is_maison and terrain > 0 else ""}
+                        <span class="badge">{nb_pieces} pièce(s)</span>
+                        {f"<span class='badge'>Terrain {terrain} m²</span>" if terrain > 0 else ""}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Nouvelle estimation", use_container_width=True):
-                    for key in list(st.session_state.keys()):
-                        del st.session_state[key]
-                    st.rerun()
+                if st.button("Faire une nouvelle estimation"):
+                    reset_estimation()
 
             except Exception as e:
-                st.error(f"Une erreur est survenue : {e}")
+                st.error("Erreur technique lors de l'estimation. Veuillez réessayer.")
+                logging.error(f"Erreur UI Predictor : {e}")
+
+# ORCHESTRATION PRINCIPALE
+
+def main():
+    """Point d'entrée de l'application Streamlit."""
+    try:
+        predictor = load_predictor()
+    except Exception as e:
+        st.error("Le modèle d'Intelligence Artificielle est indisponible.")
+        return
+
+    init_session_state()
+    inject_custom_css()
+    render_header()
+
+    # Routage vers la bonne étape du formulaire
+    if st.session_state.step == 1:
+        render_step_1()
+    elif st.session_state.step == 2:
+        render_step_2()
+    elif st.session_state.step == 3:
+        render_step_3(predictor)
+
+
+if __name__ == "__main__":
+    main()
