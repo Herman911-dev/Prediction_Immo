@@ -1,22 +1,21 @@
-import io
 import csv
-import time
+import io
 import logging
-import pandas as pd
 import os
+import time
+
+import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 
 
-# CONFIGURATION DU LOGGING
-
+# Configuration du Logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# VARIABLES GLOBALES
-
+# Chargement des variables d'environnement
 load_dotenv()
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASSWORD")
@@ -71,11 +70,11 @@ def main():
         # Injection dans la base de données
         logging.info(f"Injection de {len(df):,} lignes dans la table '{TABLE_NAME}'...")
         
-        # Nettoyage des noms de colonnes
+        # Standardisation (snake_case) imposée par les bonnes pratiques SQL
         logging.info("Standardisation des noms de colonnes (snake_case)...")
         df.columns = [col.lower().replace(' ', '_') for col in df.columns]
         
-        # OPTIMISATION RAM : chunksize=100000 couplé avec COPY 
+        # Injection par lots (chunksize) pour éviter la saturation de la RAM (MemoryError)
         df.to_sql(
             name=TABLE_NAME, 
             con=engine, 
@@ -92,8 +91,6 @@ def main():
         logging.error(f"ÉCHEC : Le fichier {CSV_PATH} est introuvable. Vérifiez votre chemin d'accès.")
     except Exception as e:
         logging.error(f"ÉCHEC : Une erreur critique est survenue lors de l'ingestion : {e}")
-
-# EXÉCUTION DU SCRIPT
 
 if __name__ == "__main__":
     main()

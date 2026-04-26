@@ -1,22 +1,26 @@
 # A lancer que la 1er fois, et à relancer quand vous mettez votre Base de Données à Jour
 # L'entraînement prend beaucoup de temps !
 
-import os
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestRegressor, VotingRegressor
-from xgboost import XGBRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, mean_absolute_error
-from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
-import joblib
 import logging
+import os
 import time
 from pathlib import Path
 
+import joblib
+import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
+from sklearn.ensemble import RandomForestRegressor, VotingRegressor
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split
+from sqlalchemy import create_engine, text
+from xgboost import XGBRegressor
+
 # Configuration du logger
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 def main():
@@ -41,7 +45,8 @@ def main():
         engine = create_engine(db_uri)
         logger.info(f"Connexion à PostgreSQL ({DB_HOST}:{DB_PORT}/{DB_NAME})...")
 
-        # Extraction depuis la BDD
+        # Filtre SQL final pour exclure les transactions atypiques 
+        # (ex: caves vendues seules, immeubles entiers > 2M€)
         query = text("""
             SELECT
                 date_mutation,
@@ -69,11 +74,11 @@ def main():
         df['annee'] = df['date_mutation'].dt.year
         df['mois']  = df['date_mutation'].dt.month
 
-        # Ratio de standing
+        # Choix métier : la taille des pièces est un bon indicateur de standing
         df['surface_par_piece'] = df['surface_reelle_bati'] / df['nb_pieces'].replace(0, 1)
 
 
-        # Target Encoding : prix moyen par code postal (aligné sur le notebook)
+        # Choix technique : Target Encoding au lieu d'un One-Hot Encoding.
         logger.info("Calcul de la mémoire géographique (Target Encoding)...")
         postal_means       = df.groupby('code_postal')['valeur_fonciere'].mean()
         df['postal_score'] = df['code_postal'].map(postal_means)
@@ -110,7 +115,9 @@ def main():
         )
         logger.info(f"Données d'entraînement : {len(X_train):,} lignes.")
 
-        # Entraînement (Voting Regressor RF + XGBoost)
+        # Choix de l'algorithme : Un Voting Regressor est plus robuste.
+        # Random Forest est résilient face aux valeurs atypiques,
+        # XGBoost est très précis sur les tendances fines.
         logger.info("Entraînement du modèle en cours... Cela peut prendre quelques minutes.")
         rf  = RandomForestRegressor(n_estimators=100, max_depth=15, n_jobs=-1)
         xgb = XGBRegressor(n_estimators=300, learning_rate=0.05, max_depth=8, n_jobs=-1)

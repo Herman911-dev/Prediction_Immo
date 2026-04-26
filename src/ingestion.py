@@ -1,9 +1,10 @@
-import pandas as pd
-from pathlib import Path
-import time
-import re
 import logging
 import os
+import re
+import time
+from pathlib import Path
+
+import pandas as pd
 
 # Configuration de Logger
 logging.basicConfig(
@@ -17,7 +18,8 @@ def process_dvf_file(file_path):
     Ouvre, filtre et nettoie un fichier DVF brut.
     Ne garde que les ventes résidentielles d'Île-de-France avec des valeurs cohérentes.
     """
-    # Configuration des filtres géographiques et colonnes
+    # Restreint le périmètre à l'Île-de-France pour limiter le volume de données 
+    # et garder une cohérence de marché.
     idf_depts = ['75', '77', '78', '91', '92', '93', '94', '95']
     cols_to_keep = [
         'Date mutation', 'Nature mutation', 'Valeur fonciere', 
@@ -29,16 +31,16 @@ def process_dvf_file(file_path):
         # Lecture optimisée
         df = pd.read_csv(file_path, sep="|", usecols=cols_to_keep, low_memory=False, dtype={'Code departement': str})
         
-        # Filtrage immédiat
+        # Filtrage métier : on exclut les échanges, donations et adjudications
         df = df[df['Code departement'].isin(idf_depts)]
         df = df[df['Nature mutation'] == 'Vente']
         df = df[df['Type local'].isin(['Maison', 'Appartement'])]
 
-        # Optimisation des types
+        # Optimisation RAM : conversion en catégories
         df['Type local'] = df['Type local'].astype('category')
         df['Code departement'] = df['Code departement'].astype('category')
 
-        # Nettoyage et Conversion
+        # Nettoyage des formats numériques (virgules françaises vers points anglais)
         df['Valeur fonciere'] = df['Valeur fonciere'].astype(str).str.replace(',', '.').astype(float)
         df['Date mutation'] = pd.to_datetime(df['Date mutation'], dayfirst=True)
         df['Surface terrain'] = df['Surface terrain'].fillna(0)
@@ -48,9 +50,14 @@ def process_dvf_file(file_path):
         df = df[df['Surface reelle bati'] > 0]
         df['prix_m2'] = df['Valeur fonciere'] / df['Surface reelle bati']
 
-        # Filtres Métier (Logique conservée)
+        # Filtres Métier 
+        # Prix : < 1000€/m² (ruines, viagers, erreurs) ou > 31000€/m² (ultra-luxe faussant la moyenne)
         df = df[(df['prix_m2'] >= 1000) & (df['prix_m2'] <= 31000)]
+        
+        # Surface : < 9m² (loi Carrez, indécent à la vente) ou > 300m² (châteaux/domaines atypiques)
         df = df[(df['Surface reelle bati'] >= 9) & (df['Surface reelle bati'] <= 300)]
+        
+        # Pièces : limitation aux biens standards (max 10 pièces)
         df = df[(df['Nombre pieces principales'] >= 1) & (df['Nombre pieces principales'] <= 10)]
         
         return df
@@ -70,7 +77,7 @@ def main():
         data_dir = Path("data")
         all_dfs = []
 
-        # Découverte automatique des fichiers
+        # Découverte dynamique des fichiers pour s'adapter aux futures années (ex: 2026.txt)
         dvf_files = list(data_dir.glob("ValeursFoncieres-*.txt"))
         
         if not dvf_files:

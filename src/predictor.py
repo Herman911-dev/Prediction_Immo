@@ -1,9 +1,11 @@
+import logging
+import os
+import time
+from pathlib import Path
+
 import joblib
 import pandas as pd
-import os
-from pathlib import Path
-import logging
-import time
+
 
 # Configuration du Logger
 logging.basicConfig(
@@ -14,8 +16,9 @@ logger = logging.getLogger(__name__)
 
 class RealEstatePredictor:
     """
-    Classe professionnelle pour gérer les prédictions immobilières.
-    Elle gère le chargement automatique des modèles et la transformation des données.
+    Classe pour gérer les prédictions immobilières en production.
+    Elle encapsule le chargement du modèle et la transformation 
+    des inputs utilisateur pour matcher le format d'entraînement.
     """
     
     def __init__(self):
@@ -60,20 +63,25 @@ class RealEstatePredictor:
             raise
 
     def predict(self, surface, nb_pieces, terrain, type_bien, code_postal, date_mutation):
-        """Réalise la prédiction à partir des données brutes utilisateur."""
+        """Réalise la prédiction à partir des données de l'interface Streamlit."""
         logger.info(f"Demande de prédiction reçue : {type_bien} de {surface}m² à {code_postal}.")
         
         try:
             # Feature Engineering
             date = pd.to_datetime(date_mutation)
             annee, mois = date.year, date.month
+            
+            # Sécurité : max(1) empêche une division par zéro si nb_pieces n'est pas renseigné
             surface_par_piece = surface / max(1, nb_pieces)
             
-            # Récupération du score postal (moyenne globale si inconnu)
+            # Gestion d'erreur (Fallback) : Si l'utilisateur tape un code postal 
+            # qui n'existait pas dans nos données d'entraînement, on lui attribue 
+            # la moyenne globale de la région IDF pour éviter que l'application ne crash.
             postal_score = self.postal_means.get(str(code_postal), self.postal_means.mean())
+            
             est_paris = 1 if str(code_postal).startswith('75') else 0
             
-            # PRÉPARATION DU FORMAT 
+            # Initialisation à 0 de toutes les colonnes attendues par le modèle
             input_data = {col: [0] for col in self.expected_columns}
             input_data.update({
                 'surface_reelle_bati': [surface],
@@ -89,10 +97,10 @@ class RealEstatePredictor:
             if type_bien == "Maison" and 'type_local_Maison' in input_data:
                 input_data['type_local_Maison'] = [1]
                 
-            # Conversion en DataFrame et remise en ordre des colonnes
+            # Garantie que les colonnes sont dans le même ordre strict que lors du 'fit()'
             df_final = pd.DataFrame(input_data)[self.expected_columns]
             
-            # PRÉDICTION
+            # Prédiction
             res = self.model.predict(df_final)[0]
             logger.info(f"Prédiction réussie : {res:,.2f} €")
             return round(res, 2)
@@ -101,7 +109,7 @@ class RealEstatePredictor:
             logger.error(f"Erreur lors du calcul de la prédiction : {e}")
             raise
 
-# TEST 
+# Test
 if __name__ == "__main__":
     # On instancie le prédicteur une seule fois
     logger.info("Lancement du test local de predictor.py")
