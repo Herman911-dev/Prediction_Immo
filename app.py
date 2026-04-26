@@ -105,7 +105,6 @@ def render_header():
     <div class="hero">
         <div class="hero-eyebrow">Île-de-France · Estimation IA</div>
         <h1 class="hero-title">Quelle est la valeur<br>de votre <span>bien</span> ?</h1>
-        <p class="hero-sub">Obtenez une estimation précise basée sur les transactions réelles de l'État (DVF).</p>
     </div>
     """, unsafe_allow_html=True)
 
